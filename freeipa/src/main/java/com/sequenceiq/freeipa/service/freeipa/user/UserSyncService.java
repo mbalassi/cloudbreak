@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 
 import javax.inject.Inject;
 
+import com.cloudera.thunderhead.service.usermanagement.UserManagementProto.CloudIdentity;
 import com.google.common.collect.ImmutableCollection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -348,10 +349,15 @@ public class UserSyncService {
                 LOGGER.debug("Finished {}.", LogEvent.SET_WORKLOAD_CREDENTIALS);
             }
 
-            // TODO For now we only sync cloud ids during full sync. We should eventually allow more granular syncs (actor level and group level sync).
-            if (fullSync && entitlementService.cloudIdentityMappingEnabled(INTERNAL_ACTOR_CRN, stack.getAccountId())) {
+            if (entitlementService.cloudIdentityMappingEnabled(INTERNAL_ACTOR_CRN, stack.getAccountId())) {
                 LOGGER.debug("Starting {} ...", LogEvent.SYNC_CLOUD_IDENTITIES);
-                cloudIdentitySyncService.syncCloudIdentities(stack, umsUsersState, warnings::put);
+                // For cloud identites we only allow full sync or syncing a single user
+                if (fullSync) {
+                    cloudIdentitySyncService.syncCloudIdentities(stack, umsUsersState, warnings::put);
+                } else if (umsUsersState.getUserToCloudIdentityMap().size() == 1) {
+                    Map.Entry<String, List<CloudIdentity>> entry = umsUsersState.getUserToCloudIdentityMap().entrySet().iterator().next();
+                    cloudIdentitySyncService.updateUserCloudIdentity(stack, entry.getKey(), entry.getValue(), warnings::put);
+                }
                 LOGGER.debug("Finished {}.", LogEvent.SYNC_CLOUD_IDENTITIES);
             }
 
@@ -382,6 +388,10 @@ public class UserSyncService {
                 LOGGER.debug("Starting {} ...", LogEvent.APPLY_DIFFERENCE_TO_IPA);
                 applyStateDifferenceToIpa(stack.getEnvironmentCrn(), freeIpaClient, usersStateDifference, warnings::put);
                 LOGGER.debug("Finished {}.", LogEvent.APPLY_DIFFERENCE_TO_IPA);
+
+                if (entitlementService.cloudIdentityMappingEnabled(INTERNAL_ACTOR_CRN, stack.getAccountId())) {
+                    cloudIdentitySyncService.updateUserCloudIdentity(stack, deletedWorkloadUser, List.of(), warnings::put);
+                }
             }
 
             LOGGER.debug("Finished {} for environment {} and deleted user {} ...", LogEvent.USER_SYNC_DELETE, environmentCrn, deletedWorkloadUser);

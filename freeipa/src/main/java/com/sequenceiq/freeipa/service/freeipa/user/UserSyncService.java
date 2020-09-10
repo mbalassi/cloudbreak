@@ -340,7 +340,7 @@ public class UserSyncService {
             // TODO For now we only sync cloud ids during full sync. We should eventually allow more granular syncs (actor level and group level sync).
             if (fullSync && entitlementService.cloudIdentityMappingEnabled(INTERNAL_ACTOR_CRN, stack.getAccountId())) {
                 LOGGER.debug("Starting {} ...", LogEvent.SYNC_CLOUD_IDENTITIES);
-                cloudIdentitySyncService.syncCloudIdentites(stack, umsUsersState, warnings::put);
+                cloudIdentitySyncService.syncCloudIdentities(stack, umsUsersState, warnings::put);
                 LOGGER.debug("Finished {}.", LogEvent.SYNC_CLOUD_IDENTITIES);
             }
 
@@ -359,7 +359,8 @@ public class UserSyncService {
     UsersState getIpaUserState(FreeIpaClient freeIpaClient, UmsUsersState umsUsersState, boolean fullSync)
             throws FreeIpaClientException {
         return fullSync ? freeIpaUsersStateProvider.getUsersState(freeIpaClient) :
-                freeIpaUsersStateProvider.getFilteredFreeIpaState(freeIpaClient, umsUsersState.getRequestedWorkloadUsers());
+                freeIpaUsersStateProvider.getFilteredFreeIpaState(
+                        freeIpaClient, umsUsersState.getRequestedWorkloadUsernames());
     }
 
     @VisibleForTesting

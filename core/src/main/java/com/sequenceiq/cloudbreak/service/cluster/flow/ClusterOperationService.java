@@ -516,4 +516,8 @@ public class ClusterOperationService {
     public FlowIdentifier updatePillarConfiguration(Stack stack) {
         return flowManager.triggerPillarConfigurationUpdate(stack.getId());
     }
+
+    public FlowIdentifier rotateClusterCertificates(Stack stack) {
+        return flowManager.triggerClusterCertificatesRotation(stack.getId());
+    }
 }

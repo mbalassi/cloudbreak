@@ -34,7 +34,7 @@ unset HTTPS_PROXY
 env
 
 TRACE=1 ./cbd regenerate
-./cbd start-wait traefik dev-gateway core-gateway commondb vault cloudbreak environment periscope freeipa redbeams datalake
+./cbd start-wait traefik dev-gateway core-gateway commondb vault cloudbreak environment periscope freeipa redbeams datalake logsink logspout logrotate
 
 date
 if [ $? -ne 0 ]; then

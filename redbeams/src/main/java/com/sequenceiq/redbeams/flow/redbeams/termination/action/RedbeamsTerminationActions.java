@@ -123,15 +123,19 @@ public class RedbeamsTerminationActions {
 
                 Exception failureException = payload.getException();
                 LOGGER.info("Error during database stack termination flow:", failureException);
-
-                if (failureException instanceof CancellationException || ExceptionUtils.getRootCause(failureException) instanceof CancellationException) {
-                    LOGGER.debug("The flow has been cancelled");
+                if (payload.isForced()) {
+                    dbStackStatusUpdater.updateStatus(payload.getResourceId(), DetailedDBStackStatus.DELETE_COMPLETED);
                 } else {
-                    // StackCreationActions / StackCreationService only update status if stack isn't mid-deletion
-                    String errorReason = failureException == null ? "Unknown error" : failureException.getMessage();
-                    Optional<DBStack> dbStack = dbStackStatusUpdater.updateStatus(payload.getResourceId(), DetailedDBStackStatus.DELETE_FAILED, errorReason);
-                    metricService.incrementMetricCounter(MetricType.DB_TERMINATION_FAILED, dbStack);
+                    if (failureException instanceof CancellationException || ExceptionUtils.getRootCause(failureException) instanceof CancellationException) {
+                        LOGGER.debug("The flow has been cancelled");
+                    } else {
+                        // StackCreationActions / StackCreationService only update status if stack isn't mid-deletion
+                        String errorReason = failureException == null ? "Unknown error" : failureException.getMessage();
+                        Optional<DBStack> dbStack = dbStackStatusUpdater.updateStatus(payload.getResourceId(), DetailedDBStackStatus.DELETE_FAILED, errorReason);
+                        metricService.incrementMetricCounter(MetricType.DB_TERMINATION_FAILED, dbStack);
+                    }
                 }
+
 
             }
 

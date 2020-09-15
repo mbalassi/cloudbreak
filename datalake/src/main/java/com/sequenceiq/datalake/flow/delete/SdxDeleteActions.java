@@ -76,7 +76,7 @@ public class SdxDeleteActions {
 
             @Override
             protected Object getFailurePayload(SdxDeleteStartEvent payload, Optional<SdxContext> flowContext, Exception ex) {
-                return SdxDeletionFailedEvent.from(payload, ex);
+                return SdxDeletionFailedEvent.from(payload, ex, payload.isForced());
             }
         };
     }
@@ -98,7 +98,7 @@ public class SdxDeleteActions {
 
             @Override
             protected Object getFailurePayload(SdxDeleteStartEvent payload, Optional<SdxContext> flowContext, Exception ex) {
-                return SdxDeletionFailedEvent.from(payload, ex);
+                return SdxDeletionFailedEvent.from(payload, ex, payload.isForced());
             }
         };
     }
@@ -120,7 +120,7 @@ public class SdxDeleteActions {
 
             @Override
             protected Object getFailurePayload(StackDeletionSuccessEvent payload, Optional<SdxContext> flowContext, Exception ex) {
-                return SdxDeletionFailedEvent.from(payload, ex);
+                return SdxDeletionFailedEvent.from(payload, ex, payload.isForced());
             }
         };
     }
@@ -169,14 +169,24 @@ public class SdxDeleteActions {
                 if (exception.getMessage() != null) {
                     statusReason = exception.getMessage();
                 }
-                try {
-                    SdxCluster sdxCluster = sdxStatusService.setStatusForDatalakeAndNotify(DatalakeStatusEnum.DELETE_FAILED, statusReason,
-                            payload.getResourceId());
-                    metricService.incrementMetricCounter(MetricType.SDX_DELETION_FAILED, sdxCluster);
-                } catch (NotFoundException notFoundException) {
-                    LOGGER.info("Can not set status to SDX_DELETION_FAILED because data lake was not found");
+                if (payload.isForced()) {
+                    Long datalakeId = payload.getResourceId();
+                    LOGGER.info("Datalake delete finalized: {}", datalakeId);
+                    SdxCluster sdxCluster = sdxService.getById(datalakeId);
+                    if (sdxCluster != null) {
+                        metricService.incrementMetricCounter(MetricType.SDX_DELETION_FINISHED, sdxCluster);
+                    }
+                    sendEvent(context, SDX_DELETE_FINALIZED_EVENT.event(), payload);
+                } else {
+                    try {
+                        SdxCluster sdxCluster = sdxStatusService.setStatusForDatalakeAndNotify(DatalakeStatusEnum.DELETE_FAILED, statusReason,
+                                payload.getResourceId());
+                        metricService.incrementMetricCounter(MetricType.SDX_DELETION_FAILED, sdxCluster);
+                    } catch (NotFoundException notFoundException) {
+                        LOGGER.info("Can not set status to SDX_DELETION_FAILED because data lake was not found");
+                    }
+                    sendEvent(context, SDX_DELETE_FAILED_HANDLED_EVENT.event(), payload);
                 }
-                sendEvent(context, SDX_DELETE_FAILED_HANDLED_EVENT.event(), payload);
             }
 
             @Override

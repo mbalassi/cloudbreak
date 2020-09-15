@@ -16,7 +16,6 @@ import com.sequenceiq.cloudbreak.cloud.context.CloudContext;
 import com.sequenceiq.cloudbreak.cloud.model.CloudCredential;
 import com.sequenceiq.cloudbreak.cloud.model.DatabaseStack;
 import com.sequenceiq.cloudbreak.cloud.model.Location;
-import com.sequenceiq.cloudbreak.common.event.Payload;
 import com.sequenceiq.cloudbreak.logger.MDCBuilder;
 import com.sequenceiq.flow.core.AbstractAction;
 import com.sequenceiq.flow.core.FlowParameters;
@@ -25,11 +24,12 @@ import com.sequenceiq.redbeams.converter.spi.DBStackToDatabaseStackConverter;
 import com.sequenceiq.redbeams.domain.stack.DBStack;
 import com.sequenceiq.redbeams.dto.Credential;
 import com.sequenceiq.redbeams.flow.redbeams.common.RedbeamsContext;
-import com.sequenceiq.redbeams.flow.redbeams.common.RedbeamsFailureEvent;
+import com.sequenceiq.redbeams.flow.redbeams.common.RedbeamsEvent;
+import com.sequenceiq.redbeams.flow.redbeams.termination.event.terminate.TerminateDatabaseServerFailed;
 import com.sequenceiq.redbeams.service.CredentialService;
 import com.sequenceiq.redbeams.service.stack.DBStackService;
 
-public abstract class AbstractRedbeamsTerminationAction<P extends Payload>
+public abstract class AbstractRedbeamsTerminationAction<P extends RedbeamsEvent>
         extends AbstractAction<RedbeamsTerminationState, RedbeamsTerminationEvent, RedbeamsContext, P> {
 
     @Inject
@@ -85,6 +85,6 @@ public abstract class AbstractRedbeamsTerminationAction<P extends Payload>
 
     @Override
     protected Object getFailurePayload(P payload, Optional<RedbeamsContext> flowContext, Exception ex) {
-        return new RedbeamsFailureEvent(payload.getResourceId(), ex);
+        return new TerminateDatabaseServerFailed(payload.getResourceId(), ex, payload.isForced());
     }
 }

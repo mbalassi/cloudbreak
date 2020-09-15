@@ -82,7 +82,7 @@ public class TerminateDatabaseServerHandler implements EventHandler<TerminateDat
             eventBus.notify(success.selector(), new Event<>(event.getHeaders(), success));
             LOGGER.debug("Terminating the database stack successfully finished for {}", cloudContext);
         } catch (Exception e) {
-            TerminateDatabaseServerFailed failure = new TerminateDatabaseServerFailed(request.getResourceId(), e);
+            TerminateDatabaseServerFailed failure = new TerminateDatabaseServerFailed(request.getResourceId(), e, request.isForced());
             LOGGER.warn("Error terminating the database stack:", e);
             eventBus.notify(failure.selector(), new Event<>(event.getHeaders(), failure));
         }

@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -786,16 +785,17 @@ public class GrpcUmsClient {
      *
      * @param accountId        the account Id
      * @param requestId        an optional request Id
-     * @param rightsChecksList list of mapping from resources to lists of rights to check. Lists are used to
-     *                         preserve order.
-     * @return the user associated with this user CRN
+     * @param rightsChecks     list of rights checks for resources. a List is used to preserve order.
+     * @return the user sync state for this account and rights checks
      */
     public GetUserSyncStateModelResponse getUserSyncStateModel(
-            String actorCrn, String accountId, List<Pair<String, List<String>>> rightsChecksList, Optional<String> requestId) {
+            String actorCrn, String accountId,
+            List<UserManagementProto.RightsCheck> rightsChecks, Optional<String> requestId) {
         try (ManagedChannelWrapper channelWrapper = makeWrapper()) {
             UmsClient client = makeClient(channelWrapper.getChannel(), actorCrn);
             LOGGER.debug("Retrieving user sync state model for account {} using request ID {}", accountId, requestId);
-            return client.getUserSyncStateModel(requestId.orElse(UUID.randomUUID().toString()), accountId, rightsChecksList);
+
+            return client.getUserSyncStateModel(requestId.orElse(UUID.randomUUID().toString()), accountId, rightsChecks);
         }
     }
 

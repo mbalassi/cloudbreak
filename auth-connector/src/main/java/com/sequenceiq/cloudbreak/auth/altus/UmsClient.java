@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -793,19 +792,11 @@ public class UmsClient {
      *
      * @param requestId          the request ID for the request
      * @param accountId          the account ID
-     * @param rightsChecksList   list of mapping from resources to lists of rights to check. Lists are used to
-     *                           preserve order.
+     * @param rightsChecks       list of rights checks for resources. A List is used to preserve order.
      * @return the user sync state model
      */
     public GetUserSyncStateModelResponse getUserSyncStateModel(
-            String requestId, String accountId, List<Pair<String, List<String>>> rightsChecksList) {
-        List<RightsCheck> rightsChecks = rightsChecksList.stream()
-                .map(pair ->
-                    RightsCheck.newBuilder()
-                            .setResourceCrn(pair.getKey())
-                            .addAllRight(pair.getValue())
-                            .build())
-                .collect(Collectors.toList());
+            String requestId, String accountId, List<RightsCheck> rightsChecks) {
         GetUserSyncStateModelRequest request = GetUserSyncStateModelRequest.newBuilder()
                 .setAccountId(accountId)
                 .addAllRightsCheck(rightsChecks)

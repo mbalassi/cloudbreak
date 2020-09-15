@@ -24,7 +24,6 @@ import com.google.common.collect.Streams;
 import com.sequenceiq.authorization.resource.AuthorizationResourceAction;
 import com.sequenceiq.cloudbreak.auth.altus.EntitlementService;
 import com.sequenceiq.freeipa.service.freeipa.user.model.Conversions;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.util.TriConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +33,7 @@ import com.cloudera.thunderhead.service.usermanagement.UserManagementProto.Cloud
 import com.cloudera.thunderhead.service.usermanagement.UserManagementProto.GetUserSyncStateModelResponse;
 import com.cloudera.thunderhead.service.usermanagement.UserManagementProto.Group;
 import com.cloudera.thunderhead.service.usermanagement.UserManagementProto.MachineUser;
+import com.cloudera.thunderhead.service.usermanagement.UserManagementProto.RightsCheck;
 import com.cloudera.thunderhead.service.usermanagement.UserManagementProto.RightsCheckResult;
 import com.cloudera.thunderhead.service.usermanagement.UserManagementProto.ServicePrincipalCloudIdentities;
 import com.cloudera.thunderhead.service.usermanagement.UserManagementProto.User;
@@ -88,7 +88,7 @@ public class UmsUsersStateProvider {
 
             boolean fullSync = userCrns.isEmpty() && machineUserCrns.isEmpty();
 
-            Map<String, UmsUsersState.Builder> envUsersStateMap;
+            Map<String, UmsUsersState> envUsersStateMap;
             if (fullSync && entitlementService.umsUserSyncModelGenerationEnabled(INTERNAL_ACTOR_CRN, accountId)) {
                 envUsersStateMap = getUmsUsersStateMapBulk(accountId, environmentCrns, requestIdOptional);
             } else {
@@ -98,16 +98,14 @@ public class UmsUsersStateProvider {
                         requestIdOptional, fullSync);
             }
 
-            return envUsersStateMap.entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey,
-                            e -> e.getValue().build()));
+            return envUsersStateMap;
         } catch (RuntimeException e) {
             throw new UmsOperationException(String.format("Error during UMS operation: '%s'", e.getLocalizedMessage()), e);
         }
     }
 
     @VisibleForTesting
-    Map<String, UmsUsersState.Builder> getUmsUsersStateMapBulk(
+    Map<String, UmsUsersState> getUmsUsersStateMapBulk(
             String accountId, Collection<String> environmentCrns, Optional<String> requestIdOptional) {
 
         List<String> environmentCrnList = List.copyOf(environmentCrns);
@@ -125,7 +123,7 @@ public class UmsUsersStateProvider {
                 .map(UserManagementProto.UserSyncActorDetails::getWorkloadUsername)
                 .collect(Collectors.toList());
 
-        Map<String, UmsUsersState.Builder> umsUsersStateBuilderMap = Maps.newHashMap();
+        Map<String, UmsUsersState> umsUsersStateMap = Maps.newHashMap();
         IntStream.range(0, environmentCrnList.size())
                 .forEach(environmentIndex -> {
                     String environmentCrn = environmentCrnList.get(environmentIndex);
@@ -146,13 +144,13 @@ public class UmsUsersStateProvider {
                     addServicePrinciplesCloudIdentities(
                             accountId, environmentCrn, umsUsersStateBuilder, requestIdOptional);
                     umsUsersStateBuilder.setUsersState(usersStateBuilder.build());
-                    umsUsersStateBuilderMap.put(environmentCrn, umsUsersStateBuilder);
+                    umsUsersStateMap.put(environmentCrn, umsUsersStateBuilder.build());
                 });
-        return umsUsersStateBuilderMap;
+        return umsUsersStateMap;
     }
 
     @VisibleForTesting
-    Map<String, UmsUsersState.Builder> getUmsUsersStateMap(
+    Map<String, UmsUsersState> getUmsUsersStateMap(
             String accountId, String actorCrn, Collection<String> environmentCrns,
             Set<String> userCrns, Set<String> machineUserCrns, Optional<String> requestIdOptional,
             boolean fullSync) {
@@ -168,7 +166,7 @@ public class UmsUsersStateProvider {
                 machineUsers.stream().map(MachineUser::getWorkloadUsername))
                 .collect(Collectors.toList());
 
-        Map<String, UmsUsersState.Builder> umsUsersStateBuilderMap = new HashMap<>();
+        Map<String, UmsUsersState> umsUsersStateMap = new HashMap<>();
         environmentCrns.forEach(environmentCrn -> {
             UmsUsersState.Builder umsUsersStateBuilder = new UmsUsersState.Builder()
                     .setWorkloadAdministrationGroups(wags.values());
@@ -213,9 +211,9 @@ public class UmsUsersStateProvider {
                     accountId, environmentCrn, umsUsersStateBuilder, requestIdOptional);
 
             umsUsersStateBuilder.setUsersState(usersStateBuilder.build());
-            umsUsersStateBuilderMap.put(environmentCrn, umsUsersStateBuilder);
+            umsUsersStateMap.put(environmentCrn, umsUsersStateBuilder.build());
         });
-        return umsUsersStateBuilderMap;
+        return umsUsersStateMap;
     }
 
     private void addActorsToUmsUsersStateBuilder(
@@ -299,9 +297,12 @@ public class UmsUsersStateProvider {
                 .collect(Collectors.toMap(wag -> wag, wag -> Conversions.nameToGroup(wag.getWorkloadAdministrationGroupName())));
     }
 
-    private List<Pair<String, List<String>>> generateRightsChecksForEnvironments(Collection<String> environmentCrns) {
+    private List<RightsCheck> generateRightsChecksForEnvironments(Collection<String> environmentCrns) {
         return environmentCrns.stream()
-                .map(crn -> Pair.of(crn, RIGHTS))
+                .map(crn -> RightsCheck.newBuilder()
+                        .setResourceCrn(crn)
+                        .addAllRight(RIGHTS)
+                        .build())
                 .collect(Collectors.toList());
     }
 

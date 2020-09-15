@@ -16,7 +16,6 @@ import com.sequenceiq.freeipa.service.freeipa.user.model.UmsUsersState;
 import com.sequenceiq.freeipa.service.freeipa.user.model.UsersState;
 import com.sequenceiq.freeipa.service.freeipa.user.model.WorkloadCredential;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -83,20 +82,20 @@ class UmsUsersStateProviderTest {
     void getEnvToUmsUsersStateMap() {
         setupMocks();
 
-        Map<String, UmsUsersState.Builder> umsUsersStateBuilderMap = underTest.getUmsUsersStateMap(
+        Map<String, UmsUsersState> umsUsersStateMap = underTest.getUmsUsersStateMap(
                 ACCOUNT_ID, ACTOR_CRN, List.of(ENVIRONMENT_CRN), Set.of(), Set.of(), Optional.empty(), true);
 
-        verifyUmsUsersStateBuilderMap(umsUsersStateBuilderMap);
+        verifyUmsUsersStateBuilderMap(umsUsersStateMap);
     }
 
     @Test
     void getUmsUsersStateMapBulk() {
         setupMocksForBulk();
 
-        Map<String, UmsUsersState.Builder> umsUsersStateBuilderMap = underTest.getUmsUsersStateMapBulk(
+        Map<String, UmsUsersState> umsUsersStateMap = underTest.getUmsUsersStateMapBulk(
                 ACCOUNT_ID, List.of(ENVIRONMENT_CRN), Optional.empty());
 
-        verifyUmsUsersStateBuilderMap(umsUsersStateBuilderMap);
+        verifyUmsUsersStateBuilderMap(umsUsersStateMap);
     }
 
     private UserSyncTestData createUserSyncTestData() {
@@ -158,8 +157,11 @@ class UmsUsersStateProviderTest {
     }
 
     private void setupMocksForBulk() {
-        List<Pair<String, List<String>>> expectedRightsChecks =
-                List.of(Pair.of(ENVIRONMENT_CRN, UmsUsersStateProvider.RIGHTS));
+        List<UserManagementProto.RightsCheck> expectedRightsChecks =
+                List.of(UserManagementProto.RightsCheck.newBuilder()
+                        .setResourceCrn(ENVIRONMENT_CRN)
+                        .addAllRight(UmsUsersStateProvider.RIGHTS)
+                        .build());
 
         UserManagementProto.GetUserSyncStateModelResponse.Builder builder =
                 UserManagementProto.GetUserSyncStateModelResponse.newBuilder();
@@ -241,11 +243,10 @@ class UmsUsersStateProviderTest {
                 .thenReturn(testData.servicePrincipalCloudIdentities);
     }
 
-    private void verifyUmsUsersStateBuilderMap(Map<String, UmsUsersState.Builder> umsUsersStateBuildersMap) {
-        assertEquals(1, umsUsersStateBuildersMap.size());
-        UmsUsersState.Builder builder = umsUsersStateBuildersMap.get(ENVIRONMENT_CRN);
-        assertNotNull(builder);
-        UmsUsersState state = builder.build();
+    private void verifyUmsUsersStateBuilderMap(Map<String, UmsUsersState> umsUsersStateMap) {
+        assertEquals(1, umsUsersStateMap.size());
+        UmsUsersState state = umsUsersStateMap.get(ENVIRONMENT_CRN);
+        assertNotNull(state);
 
         // Add the internal group to the expected groups and wags
         assertEquals(testData.groups.size() + testData.wagsForThisEnvironment.size() + 1,
